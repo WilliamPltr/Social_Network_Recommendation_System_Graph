@@ -25,14 +25,30 @@ from app.embedding import project_features_to_embedding
 def run(batch_size: int = 1000) -> None:
     """Compute and persist embeddings for all users based on their features."""
     settings = get_settings()
-    driver = GraphDatabase.driver(
-        settings.neo4j_uri,
-        auth=(settings.neo4j_user, settings.neo4j_password),
-    )
+    print(f"[EMBEDDINGS ETL] Connecting to Neo4j at: {settings.neo4j_uri}")
+    
+    try:
+        driver = GraphDatabase.driver(
+            settings.neo4j_uri,
+            auth=(settings.neo4j_user, settings.neo4j_password),
+        )
+        # Test connection
+        with driver.session() as test_session:
+            test_session.run("RETURN 1").single()
+        print("[EMBEDDINGS ETL] ✓ Connection successful")
+    except Exception as e:
+        print(f"[EMBEDDINGS ETL] ✗ Connection failed: {e}")
+        raise
 
     with driver.session() as session:
+        # Count users with features
+        count_result = session.run("MATCH (u:User) WHERE u.features IS NOT NULL RETURN count(u) AS cnt").single()
+        total_users = count_result["cnt"] if count_result else 0
+        print(f"[EMBEDDINGS ETL] Found {total_users} users with features")
+
         # Iterate in batches over all users that have features.
         skip = 0
+        processed = 0
         while True:
             result = session.run(
                 """
@@ -48,6 +64,7 @@ def run(batch_size: int = 1000) -> None:
             if not records:
                 break
 
+            print(f"[EMBEDDINGS ETL] Processing batch: {skip} to {skip + len(records)}...")
             for record in records:
                 user_id = record["user_id"]
                 features = record["features"]
@@ -61,10 +78,19 @@ def run(batch_size: int = 1000) -> None:
                     user_id=user_id,
                     embedding=embedding,
                 )
+                processed += 1
 
             skip += batch_size
+            if processed % 1000 == 0:
+                print(f"[EMBEDDINGS ETL] Processed {processed}/{total_users} users...")
+
+    # Verify
+    with driver.session() as verify_session:
+        embedding_count_result = verify_session.run("MATCH (u:User) WHERE u.embedding IS NOT NULL RETURN count(u) AS cnt").single()
+        print(f"[EMBEDDINGS ETL] Verification: {embedding_count_result['cnt']} users with embeddings")
 
     driver.close()
+    print(f"[EMBEDDINGS ETL] ✓ ETL completed successfully: {processed} users processed")
 
 
 if __name__ == "__main__":

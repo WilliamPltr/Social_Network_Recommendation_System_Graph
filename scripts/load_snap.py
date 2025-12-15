@@ -51,14 +51,26 @@ def load_features() -> Dict[str, List[int]]:
 def run():
     """Main ETL entrypoint."""
     settings = get_settings()
-    driver = GraphDatabase.driver(
-        settings.neo4j_uri,
-        auth=(settings.neo4j_user, settings.neo4j_password),
-    )
+    print(f"[SNAP ETL] Connecting to Neo4j at: {settings.neo4j_uri}")
+    
+    try:
+        driver = GraphDatabase.driver(
+            settings.neo4j_uri,
+            auth=(settings.neo4j_user, settings.neo4j_password),
+        )
+        # Test connection
+        with driver.session() as test_session:
+            test_session.run("RETURN 1").single()
+        print("[SNAP ETL] ✓ Connection successful")
+    except Exception as e:
+        print(f"[SNAP ETL] ✗ Connection failed: {e}")
+        raise
 
+    print("[SNAP ETL] Loading CSV/JSON files...")
     edges = load_edges()
     targets = load_targets()
     features = load_features()
+    print(f"[SNAP ETL] Loaded: {len(edges)} edges, {len(targets)} targets, {len(features)} feature vectors")
 
     # Normalize feature vectors into fixed-length lists.
     # musae_git_features.json maps node_id -> {feature_index: value, ...}
@@ -75,9 +87,13 @@ def run():
 
     with driver.session() as session:
         # Create unique constraint.
+        print("[SNAP ETL] Creating User constraint...")
         session.run("CREATE CONSTRAINT IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE")
+        print("[SNAP ETL] ✓ Constraint created")
 
         # Create users.
+        print(f"[SNAP ETL] Creating {len(targets)} User nodes...")
+        user_count = 0
         for _, row in targets.iterrows():
             node_id = int(row["id"])
             name = row.get("name") or row.get("target") or str(node_id)
@@ -92,8 +108,15 @@ def run():
                 name=name,
                 features=feats,
             )
+            user_count += 1
+            if user_count % 1000 == 0:
+                print(f"[SNAP ETL] Created {user_count} users...")
+
+        print(f"[SNAP ETL] ✓ Created {user_count} User nodes")
 
         # Create KNOWS edges (followers).
+        print(f"[SNAP ETL] Creating {len(edges)} KNOWS relationships...")
+        edge_count = 0
         for _, row in edges.iterrows():
             src = int(row["src"])
             dst = int(row["dst"])
@@ -105,8 +128,20 @@ def run():
                 src=src,
                 dst=dst,
             )
+            edge_count += 1
+            if edge_count % 10000 == 0:
+                print(f"[SNAP ETL] Created {edge_count} relationships...")
+
+        print(f"[SNAP ETL] ✓ Created {edge_count} KNOWS relationships")
+
+    # Verify
+    with driver.session() as verify_session:
+        user_count_result = verify_session.run("MATCH (u:User) RETURN count(u) AS cnt").single()
+        knows_count_result = verify_session.run("MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt").single()
+        print(f"[SNAP ETL] Verification: {user_count_result['cnt']} users, {knows_count_result['cnt']} KNOWS relationships")
 
     driver.close()
+    print("[SNAP ETL] ✓ ETL completed successfully")
 
 
 if __name__ == "__main__":
