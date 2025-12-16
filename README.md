@@ -87,12 +87,3 @@ Or in Docker:
 ```bash
 docker compose run --rm tests
 ```
-
-### Next Steps / TODO
-
-- Add a **graph schema diagram** (draw.io) to the repo with a short modeling rationale.
-- Create a **Jupyter notebook** at the project root for **graph EDA** (degree distribution, communities, etc.).
-- Enrich `User` and `Job` schemas with more attributes (skills, industries, locations).
-- Implement a concrete pipeline to map SNAP `features` into user embeddings compatible with job embeddings.
-
-
