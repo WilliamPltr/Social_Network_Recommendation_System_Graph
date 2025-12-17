@@ -51,6 +51,22 @@ docker compose exec api python -m scripts.create_user_embeddings
 
 - Swagger UI: `http://localhost:8000/docs`
 
+### Makefile commands
+
+For convenience, common tasks are exposed via the `Makefile`:
+
+- `make up` – build and start all Docker services.
+- `make down` – stop and remove all Docker services.
+- `make logs` – follow Docker logs.
+- `make api` – run the FastAPI app locally with Uvicorn.
+- `make tests` – run the pytest test suite.
+- `make lint` – run pylint on `app/`, `scripts/`, and `tests/`.
+- `make etl-snap` – load the SNAP GitHub dataset into Neo4j.
+- `make etl-jobs` – load LinkedIn job listings into Neo4j.
+- `make etl-user-emb` – compute user embeddings based on features.
+
+You can also run `make help` to see a short description of each command.
+
 ### Graph Modeling (High-level)
 
 - **Nodes**:
@@ -73,6 +89,29 @@ docker compose exec api python -m scripts.create_user_embeddings
   to map SNAP `features` into a dense `User.embedding` with the **same dimensionality**
   as `Job.embedding`, making direct cosine similarity comparisons possible.
 - The API then uses **cosine similarity** between `User.embedding` and `Job.embedding` to rank jobs.
+
+### Modeling and architecture diagrams (textual)
+
+**Graph schema (conceptual)**
+
+- Node labels:
+  - `User(id, name, features, embedding)`
+  - `Job(job_id, title, company, location, embedding, normalized_salary)`
+- Relationships:
+  - `(:User)-[:KNOWS]->(:User)` – follower / friend relationships.
+
+This can be extended to additional labels such as `Company` or `Skill` if needed.
+
+**System architecture (conceptual)**
+
+- Services:
+  - `api` (FastAPI) – exposes the HTTP API and calls Neo4j.
+  - `neo4j` – graph database storing users, jobs, and relationships.
+  - `tests` – container that runs the pytest suite against the same code.
+- Data flow:
+  - ETL scripts (`scripts/load_snap.py`, `scripts/load_jobs.py`, `scripts/create_user_embeddings.py`)
+    connect to Neo4j and populate / enrich the graph.
+  - The FastAPI endpoints read from Neo4j and compute recommendations on the fly.
 
 ### Testing
 

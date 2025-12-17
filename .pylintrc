@@ -1,0 +1,19 @@
+[MASTER]
+ignore=__pycache__,.venv,env
+
+[MESSAGES CONTROL]
+# Keep the configuration simple and focused on major issues so that it is
+# realistic to reach a high pylint score, while still encouraging clean code.
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    R0903,  # too-few-public-methods
+
+[FORMAT]
+max-line-length=100
+
+[BASIC]
+good-names=i,j,k,x,y,df
+
+
