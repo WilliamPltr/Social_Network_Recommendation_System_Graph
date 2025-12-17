@@ -52,25 +52,24 @@ def run():
     """Main ETL entrypoint."""
     settings = get_settings()
     print(f"[SNAP ETL] Connecting to Neo4j at: {settings.neo4j_uri}")
-    
-    try:
-        driver = GraphDatabase.driver(
-            settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password),
-        )
-        # Test connection
-        with driver.session() as test_session:
-            test_session.run("RETURN 1").single()
-        print("[SNAP ETL] ✓ Connection successful")
-    except Exception as e:
-        print(f"[SNAP ETL] ✗ Connection failed: {e}")
-        raise
+
+    driver = GraphDatabase.driver(
+        settings.neo4j_uri,
+        auth=(settings.neo4j_user, settings.neo4j_password),
+    )
+    # Test connection
+    with driver.session() as test_session:
+        test_session.run("RETURN 1").single()
+    print("[SNAP ETL] ✓ Connection successful")
 
     print("[SNAP ETL] Loading CSV/JSON files...")
     edges = load_edges()
     targets = load_targets()
     features = load_features()
-    print(f"[SNAP ETL] Loaded: {len(edges)} edges, {len(targets)} targets, {len(features)} feature vectors")
+    print(
+        f"[SNAP ETL] Loaded: {len(edges)} edges, "
+        f"{len(targets)} targets, {len(features)} feature vectors"
+    )
 
     # Normalize feature vectors into fixed-length lists.
     # musae_git_features.json maps node_id -> {feature_index: value, ...}
@@ -136,9 +135,14 @@ def run():
 
     # Verify
     with driver.session() as verify_session:
-        user_count_result = verify_session.run("MATCH (u:User) RETURN count(u) AS cnt").single()
-        knows_count_result = verify_session.run("MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt").single()
-        print(f"[SNAP ETL] Verification: {user_count_result['cnt']} users, {knows_count_result['cnt']} KNOWS relationships")
+        user_query = "MATCH (u:User) RETURN count(u) AS cnt"
+        user_count_result = verify_session.run(user_query).single()
+        knows_query = "MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt"
+        knows_count_result = verify_session.run(knows_query).single()
+        print(
+            f"[SNAP ETL] Verification: {user_count_result['cnt']} users, "
+            f"{knows_count_result['cnt']} KNOWS relationships"
+        )
 
     driver.close()
     print("[SNAP ETL] ✓ ETL completed successfully")
@@ -146,5 +150,4 @@ def run():
 
 if __name__ == "__main__":
     run()
-
 

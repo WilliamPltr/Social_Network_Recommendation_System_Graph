@@ -98,7 +98,6 @@ async def get_people_you_may_know(
     if record is None or record["features"] is None:
         return []
 
-    target_name = record.get("name")
     target_vec = np.array(record["features"], dtype=float)
 
     # Fetch candidate users and their features.
@@ -195,5 +194,4 @@ async def get_job_recommendations(
     # Trier par score de similarité décroissant (dernier élément du tuple).
     scores.sort(key=lambda x: x[-1], reverse=True)
     return scores[:limit]
-
 

@@ -10,7 +10,7 @@ from neo4j import AsyncGraphDatabase, AsyncDriver
 from app.config import get_settings
 
 
-_driver: AsyncDriver | None = None
+_driver: AsyncDriver | None = None  # pylint: disable=invalid-name
 
 
 def get_driver() -> AsyncDriver:
@@ -35,5 +35,4 @@ async def neo4j_session() -> AsyncIterator:
     driver = get_driver()
     async with driver.session() as session:
         yield session
-
 

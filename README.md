@@ -36,10 +36,23 @@ This project implements a **LinkedIn-style professional network** on top of **Ne
 1. **Build and start services**:
 
 ```bash
+make up
+```
+
+or for the 🥷
+
+
+```bash
 docker compose up --build
 ```
 
 2. **Load data into Neo4j** (in another terminal, inside the project directory):
+
+```bash
+make begin
+```
+
+or for the 🥷🏿
 
 ```bash
 docker compose exec api python -m scripts.load_snap

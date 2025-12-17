@@ -52,4 +52,3 @@ def project_features_to_embedding(
     padded[: vec.size] = vec
     return padded.tolist()
 
-

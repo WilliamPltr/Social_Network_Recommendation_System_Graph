@@ -9,6 +9,9 @@ disable=
     C0115,  # missing-class-docstring
     C0116,  # missing-function-docstring
     R0903,  # too-few-public-methods
+    R0914,  # too-many-locals (acceptable in ETL scripts)
+    R0915,  # too-many-statements (acceptable in ETL scripts)
+    R0801,  # duplicate-code (acceptable for similar connection patterns)
 
 [FORMAT]
 max-line-length=100

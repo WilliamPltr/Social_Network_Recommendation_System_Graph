@@ -26,23 +26,23 @@ def run(batch_size: int = 1000) -> None:
     """Compute and persist embeddings for all users based on their features."""
     settings = get_settings()
     print(f"[EMBEDDINGS ETL] Connecting to Neo4j at: {settings.neo4j_uri}")
-    
-    try:
-        driver = GraphDatabase.driver(
-            settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password),
-        )
-        # Test connection
-        with driver.session() as test_session:
-            test_session.run("RETURN 1").single()
-        print("[EMBEDDINGS ETL] ✓ Connection successful")
-    except Exception as e:
-        print(f"[EMBEDDINGS ETL] ✗ Connection failed: {e}")
-        raise
+
+    driver = GraphDatabase.driver(
+        settings.neo4j_uri,
+        auth=(settings.neo4j_user, settings.neo4j_password),
+    )
+    # Test connection
+    with driver.session() as test_session:
+        test_session.run("RETURN 1").single()
+    print("[EMBEDDINGS ETL] ✓ Connection successful")
 
     with driver.session() as session:
         # Count users with features
-        count_result = session.run("MATCH (u:User) WHERE u.features IS NOT NULL RETURN count(u) AS cnt").single()
+        count_query = (
+            "MATCH (u:User) WHERE u.features IS NOT NULL "
+            "RETURN count(u) AS cnt"
+        )
+        count_result = session.run(count_query).single()
         total_users = count_result["cnt"] if count_result else 0
         print(f"[EMBEDDINGS ETL] Found {total_users} users with features")
 
@@ -86,14 +86,23 @@ def run(batch_size: int = 1000) -> None:
 
     # Verify
     with driver.session() as verify_session:
-        embedding_count_result = verify_session.run("MATCH (u:User) WHERE u.embedding IS NOT NULL RETURN count(u) AS cnt").single()
-        print(f"[EMBEDDINGS ETL] Verification: {embedding_count_result['cnt']} users with embeddings")
+        verify_query = (
+            "MATCH (u:User) WHERE u.embedding IS NOT NULL "
+            "RETURN count(u) AS cnt"
+        )
+        embedding_count_result = verify_session.run(verify_query).single()
+        print(
+            f"[EMBEDDINGS ETL] Verification: "
+            f"{embedding_count_result['cnt']} users with embeddings"
+        )
 
     driver.close()
-    print(f"[EMBEDDINGS ETL] ✓ ETL completed successfully: {processed} users processed")
+    print(
+        f"[EMBEDDINGS ETL] ✓ ETL completed successfully: "
+        f"{processed} users processed"
+    )
 
 
 if __name__ == "__main__":
     run()
-
 

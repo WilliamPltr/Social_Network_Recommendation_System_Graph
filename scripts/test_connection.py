@@ -3,6 +3,9 @@ Simple script to test Neo4j connection and verify data exists.
 Run this to diagnose connection issues.
 """
 
+import sys
+import traceback
+
 from neo4j import GraphDatabase
 
 from app.config import get_settings
@@ -47,19 +50,31 @@ def test_connection():
             print(f"✓ KNOWS relationships: {knows_count}")
 
             # Count users with features
-            result = session.run("MATCH (u:User) WHERE u.features IS NOT NULL RETURN count(u) AS cnt")
+            features_query = (
+                "MATCH (u:User) WHERE u.features IS NOT NULL "
+                "RETURN count(u) AS cnt"
+            )
+            result = session.run(features_query)
             record = result.single()
             features_count = record["cnt"] if record else 0
             print(f"✓ Users with features: {features_count}")
 
             # Count users with embeddings
-            result = session.run("MATCH (u:User) WHERE u.embedding IS NOT NULL RETURN count(u) AS cnt")
+            embedding_query = (
+                "MATCH (u:User) WHERE u.embedding IS NOT NULL "
+                "RETURN count(u) AS cnt"
+            )
+            result = session.run(embedding_query)
             record = result.single()
             embedding_count = record["cnt"] if record else 0
             print(f"✓ Users with embeddings: {embedding_count}")
 
             # Count jobs with embeddings
-            result = session.run("MATCH (j:Job) WHERE j.embedding IS NOT NULL RETURN count(j) AS cnt")
+            job_embedding_query = (
+                "MATCH (j:Job) WHERE j.embedding IS NOT NULL "
+                "RETURN count(j) AS cnt"
+            )
+            result = session.run(job_embedding_query)
             record = result.single()
             job_embedding_count = record["cnt"] if record else 0
             print(f"✓ Jobs with embeddings: {job_embedding_count}")
@@ -75,9 +90,8 @@ def test_connection():
         driver.close()
         print("\n✓ All checks passed!")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"\n✗ Error: {e}")
-        import traceback
         traceback.print_exc()
         return False
 
@@ -85,6 +99,6 @@ def test_connection():
 
 
 if __name__ == "__main__":
-    success = test_connection()
-    exit(0 if success else 1)
+    test_success = test_connection()  # pylint: disable=invalid-name
+    sys.exit(0 if test_success else 1)
 

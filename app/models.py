@@ -36,4 +36,3 @@ class RecommendationResponse(BaseModel):
     direct_friends_count: Optional[int] = None
     friends_of_friends_count: Optional[int] = None
 
-

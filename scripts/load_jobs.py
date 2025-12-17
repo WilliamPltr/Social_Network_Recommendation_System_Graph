@@ -41,19 +41,15 @@ def run(limit: int | None = 5000) -> None:
     """Main job ingestion logic."""
     settings = get_settings()
     print(f"[JOBS ETL] Connecting to Neo4j at: {settings.neo4j_uri}")
-    
-    try:
-        driver = GraphDatabase.driver(
-            settings.neo4j_uri,
-            auth=(settings.neo4j_user, settings.neo4j_password),
-        )
-        # Test connection
-        with driver.session() as test_session:
-            test_session.run("RETURN 1").single()
-        print("[JOBS ETL] ✓ Connection successful")
-    except Exception as e:
-        print(f"[JOBS ETL] ✗ Connection failed: {e}")
-        raise
+
+    driver = GraphDatabase.driver(
+        settings.neo4j_uri,
+        auth=(settings.neo4j_user, settings.neo4j_password),
+    )
+    # Test connection
+    with driver.session() as test_session:
+        test_session.run("RETURN 1").single()
+    print("[JOBS ETL] ✓ Connection successful")
 
     print("[JOBS ETL] Loading LinkedIn job listings from Hugging Face...")
     ds = load_dataset("datastax/linkedin_job_listings", split="train")
@@ -131,9 +127,17 @@ def run(limit: int | None = 5000) -> None:
 
     # Verify
     with driver.session() as verify_session:
-        job_count_result = verify_session.run("MATCH (j:Job) RETURN count(j) AS cnt").single()
-        job_embedding_result = verify_session.run("MATCH (j:Job) WHERE j.embedding IS NOT NULL RETURN count(j) AS cnt").single()
-        print(f"[JOBS ETL] Verification: {job_count_result['cnt']} jobs, {job_embedding_result['cnt']} with embeddings")
+        job_query = "MATCH (j:Job) RETURN count(j) AS cnt"
+        job_count_result = verify_session.run(job_query).single()
+        embedding_query = (
+            "MATCH (j:Job) WHERE j.embedding IS NOT NULL "
+            "RETURN count(j) AS cnt"
+        )
+        job_embedding_result = verify_session.run(embedding_query).single()
+        print(
+            f"[JOBS ETL] Verification: {job_count_result['cnt']} jobs, "
+            f"{job_embedding_result['cnt']} with embeddings"
+        )
 
     driver.close()
     print("[JOBS ETL] ✓ ETL completed successfully")
@@ -141,5 +145,4 @@ def run(limit: int | None = 5000) -> None:
 
 if __name__ == "__main__":
     run()
-
 

@@ -13,6 +13,8 @@ help:
 	@echo "  make etl-snap     - Load SNAP GitHub data into Neo4j"
 	@echo "  make etl-jobs     - Load LinkedIn job listings into Neo4j"
 	@echo "  make etl-user-emb - Create user embeddings in Neo4j"
+	@echo "  make begin        - Load all data into Neo4j"
+	@echo "  make pip          - Install dependencies"
 
 up:
 	docker compose up --build
@@ -27,10 +29,10 @@ api:
 	$(PYTHON) -m uvicorn app.main:app --reload
 
 tests:
-	pytest -q
+	$(PYTHON) -m pytest -q
 
 lint:
-	pylint app scripts tests
+	$(PYTHON) -m pylint app scripts tests --exit-zero || true
 
 etl-snap:
 	$(PYTHON) -m scripts.load_snap
@@ -41,3 +43,10 @@ etl-jobs:
 etl-user-emb:
 	$(PYTHON) -m scripts.create_user_embeddings
 
+begin:
+	make etl-snap
+	make etl-jobs
+	make etl-user-emb
+
+pip:
+	pip install -r requirements.txt

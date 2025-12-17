@@ -37,5 +37,3 @@ def test_pearson_size_mismatch_raises():
         assert False, "Expected ValueError"
     except ValueError:
         assert True
-
-

@@ -7,6 +7,7 @@ from typing import List
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from neo4j import AsyncSession
+from neo4j.exceptions import ServiceUnavailable, TransientError
 
 from app.config import get_settings
 from app.db import neo4j_session
@@ -136,6 +137,18 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+async def _run_count_query(
+    session: AsyncSession, query: str, key: str
+) -> dict:
+    """Helper to run a count query and return result or error."""
+    try:
+        result = await session.run(query)
+        record = await result.single()
+        return {key: record["cnt"] if record else 0}
+    except (ServiceUnavailable, TransientError, Exception) as e:
+        return {f"{key}_error": str(e)}
+
+
 @app.get("/api/debug/stats")
 async def debug_stats(session: AsyncSession = Depends(get_session)) -> dict:
     """
@@ -143,77 +156,50 @@ async def debug_stats(session: AsyncSession = Depends(get_session)) -> dict:
     Useful for debugging why data might not be visible.
     """
     try:
-        # Test connection
         test_query = "RETURN 1 AS test"
         result = await session.run(test_query)
         await result.single()
-        connection_ok = True
-    except Exception as e:
+    except (ServiceUnavailable, TransientError, Exception) as e:
         return {
             "connection_ok": False,
             "error": str(e),
             "neo4j_uri": get_settings().neo4j_uri,
         }
 
-    # Count nodes
-    user_count_query = "MATCH (u:User) RETURN count(u) AS cnt"
-    job_count_query = "MATCH (j:Job) RETURN count(j) AS cnt"
-    knows_count_query = "MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt"
-    user_with_features_query = "MATCH (u:User) WHERE u.features IS NOT NULL RETURN count(u) AS cnt"
-    user_with_embedding_query = "MATCH (u:User) WHERE u.embedding IS NOT NULL RETURN count(u) AS cnt"
-    job_with_embedding_query = "MATCH (j:Job) WHERE j.embedding IS NOT NULL RETURN count(j) AS cnt"
-
     stats = {"connection_ok": True, "neo4j_uri": get_settings().neo4j_uri}
 
-    try:
-        result = await session.run(user_count_query)
-        record = await result.single()
-        stats["user_count"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["user_count_error"] = str(e)
+    queries = {
+        "user_count": "MATCH (u:User) RETURN count(u) AS cnt",
+        "job_count": "MATCH (j:Job) RETURN count(j) AS cnt",
+        "knows_relationships_count": "MATCH ()-[r:KNOWS]->() RETURN count(r) AS cnt",
+        "users_with_features": (
+            "MATCH (u:User) WHERE u.features IS NOT NULL "
+            "RETURN count(u) AS cnt"
+        ),
+        "users_with_embedding": (
+            "MATCH (u:User) WHERE u.embedding IS NOT NULL "
+            "RETURN count(u) AS cnt"
+        ),
+        "jobs_with_embedding": (
+            "MATCH (j:Job) WHERE j.embedding IS NOT NULL "
+            "RETURN count(j) AS cnt"
+        ),
+    }
 
-    try:
-        result = await session.run(job_count_query)
-        record = await result.single()
-        stats["job_count"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["job_count_error"] = str(e)
-
-    try:
-        result = await session.run(knows_count_query)
-        record = await result.single()
-        stats["knows_relationships_count"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["knows_relationships_error"] = str(e)
-
-    try:
-        result = await session.run(user_with_features_query)
-        record = await result.single()
-        stats["users_with_features"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["users_with_features_error"] = str(e)
-
-    try:
-        result = await session.run(user_with_embedding_query)
-        record = await result.single()
-        stats["users_with_embedding"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["users_with_embedding_error"] = str(e)
-
-    try:
-        result = await session.run(job_with_embedding_query)
-        record = await result.single()
-        stats["jobs_with_embedding"] = record["cnt"] if record else 0
-    except Exception as e:
-        stats["jobs_with_embedding_error"] = str(e)
+    for key, query in queries.items():
+        stats.update(await _run_count_query(session, query, key))
 
     # Sample user IDs
     try:
-        sample_query = "MATCH (u:User) RETURN u.id AS id, u.name AS name LIMIT 5"
+        sample_query = (
+            "MATCH (u:User) RETURN u.id AS id, u.name AS name LIMIT 5"
+        )
         result = await session.run(sample_query)
         records = await result.data()
-        stats["sample_users"] = [{"id": r["id"], "name": r.get("name")} for r in records]
-    except Exception as e:
+        stats["sample_users"] = [
+            {"id": r["id"], "name": r.get("name")} for r in records
+        ]
+    except (ServiceUnavailable, TransientError, Exception) as e: 
         stats["sample_users_error"] = str(e)
 
     return stats
@@ -517,5 +503,4 @@ async def index() -> str:
     </body>
     </html>
     """
-
 
