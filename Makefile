@@ -1,6 +1,8 @@
-PYTHON ?= python
+VENV ?= .venv
+# Prefer project venv if present; otherwise fall back to system python3 (macOS usually doesn't ship `python`).
+PYTHON ?= $(if $(wildcard $(VENV)/bin/python),$(VENV)/bin/python,python3)
 
-.PHONY: up down logs api tests lint etl-snap etl-jobs etl-user-emb
+.PHONY: up down logs api tests lint etl-snap etl-jobs etl-user-emb begin venv pip
 
 help:
 	@echo "Available make commands:"
@@ -44,9 +46,13 @@ etl-user-emb:
 	$(PYTHON) -m scripts.create_user_embeddings
 
 begin:
-	make etl-snap
-	make etl-jobs
-	make etl-user-emb
+	$(MAKE) etl-snap
+	$(MAKE) etl-jobs
+	$(MAKE) etl-user-emb
 
 pip:
-	pip install -r requirements.txt
+	$(PYTHON) -m pip install -r requirements.txt
+
+venv:
+	python3 -m venv $(VENV)
+	$(VENV)/bin/python -m pip install -U pip
